@@ -1,5 +1,11 @@
 
 function create_main_window() {
+    nw.Screen.Init();
+    var screen_width = nw.Screen.screens[0]['bounds']['width'];
+    var screen_height = nw.Screen.screens[0]['bounds']['height'];
+    console.log(screen_width);
+    console.log(screen_height);
+    console.log(nw.Screen);
     nw.Window.open(
         "index.html",
         {
@@ -11,7 +17,7 @@ function create_main_window() {
         function (newWindow) {
             newWindow.window.nw_window = newWindow;
             newWindow.moveTo(-5,0);
-            newWindow.resizeTo(1450,900);
+            newWindow.resizeTo(screen_width + 10, screen_height);
             newWindow.show();
         }
     );
