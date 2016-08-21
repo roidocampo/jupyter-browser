@@ -30,6 +30,11 @@ TabList.prototype.close_current = function() {
         this.shown_tab.close();
 };
 
+TabList.prototype.force_close_current = function() {
+    if (this.shown_tab)
+        this.shown_tab.close(true);
+};
+
 TabList.prototype.show_by_num = function(num) {
     var tab = this.tabs[num-1];
     if (tab)
@@ -45,6 +50,10 @@ var tab_list = new TabList();
 function Tab(url, is_home, window_to_attach=undefined) {
     this.orig_url = url;
     this.is_home = is_home;
+    if (url.match(/.*notebook.*/))
+        this.is_notebook = true;
+    else
+        this.is_notebook = false;
     this.title = undefined;
     this.window_to_attach = window_to_attach;
     this.setup_done = false;
@@ -68,6 +77,8 @@ Tab.prototype.setup2 = function() {
         return;
     this.setup_done = true;
 
+    this.setup_messaging();
+
     this.webview.addEventListener("close", this.close.bind(this));
     this.webview.addEventListener("newwindow", this.newwindow.bind(this));
 
@@ -79,6 +90,28 @@ Tab.prototype.setup2 = function() {
     this.update_title();
     this.show();
     tab_list.add(this);
+};
+
+Tab.prototype.setup_messaging = function() {
+    var that = this;
+    var wv = this.webview;
+    inject_script(wv, ''
+        +  'var messageSource, messageOrigin;'
+        +  'addEventListener("message", function(e) {'
+        +  '    messageSource = e.source;'
+        +  '    messageOrigin = e.origin;'
+        +  '});'
+        +  'window.close = function() {'
+        +  '    messageSource.postMessage("close", messageOrigin);'
+        +  '};'
+    );
+    addEventListener('message', function(e) {
+        if (e.source != wv.contentWindow)
+            return;
+        if (e.data == "close")
+            that.close(true);
+    });
+    wv.contentWindow.postMessage('hello, webpage!', '*');
 };
 
 Tab.prototype.hide = function() {
@@ -104,19 +137,15 @@ Tab.prototype.show = function() {
 
 Tab.prototype.update_notebook_list = function() {
     if (this.is_home) {
-        this.webview.executeScript(
-            { code:   "(function(){"
-                    + "var script = document.createElement('script');"
-                    + "script.text = 'Jupyter.notebook_list.load_sessions();';"
-                    + "document.head.appendChild(script);"
-                    + "})()"
-            },
-            function (x) { return x; }
-        );
+        inject_script(this.webview, 'Jupyter.notebook_list.load_sessions();');
     }
 };
 
-Tab.prototype.close = function() {
+Tab.prototype.close = function(force) {
+    if (!force && this.is_notebook) {
+        inject_script(this.webview, '$("#kill_and_exit").click();');
+        return;
+    }
     tab_list.remove(this);
     if (tab_list.tabs.length > 0) {
         var new_tab = tab_list.tabs[0];
@@ -142,6 +171,24 @@ Tab.prototype.update_title = function() {
         }
     );
 };
+
+//////////////////////////////////////////////////////////////////////
+// inject_script
+//////////////////////////////////////////////////////////////////////
+
+function inject_script(wv, script) {
+    wv.executeScript(
+        { code:   "(function(){"
+                + "var script = document.createElement('script');"
+                + "script.text = '"
+                + script
+                + "';"
+                + "document.head.appendChild(script);"
+                + "})()"
+        },
+        function (x) { return x; }
+    );
+}
 
 //////////////////////////////////////////////////////////////////////
 // load_tab
@@ -206,6 +253,13 @@ submenu.append(new nw.MenuItem({
 }));
 
 submenu.append(new nw.MenuItem({
+    label : "Force Close Tab",
+    key : "w",
+    modifiers : "cmd+shift",
+    click : tab_list.force_close_current.bind(tab_list)
+}));
+
+submenu.append(new nw.MenuItem({
     label : "Open Default Tab",
     key : "o",
     modifiers : "cmd",
@@ -241,8 +295,12 @@ submenu.append(new nw.MenuItem({
     key : "`",
     modifiers : "cmd",
     click : function() {
-        if (tab_list.shown_tab)
-            tab_list.shown_tab.webview.classList.toggle('nomenu');
+        if (tab_list.shown_tab) {
+            inject_script(
+                tab_list.shown_tab.webview,
+                '$("#header").toggle();'
+            );
+        }
     }
 }));
 
