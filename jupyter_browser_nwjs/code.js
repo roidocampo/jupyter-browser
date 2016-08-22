@@ -77,6 +77,7 @@ Tab.prototype.setup2 = function() {
         return;
     this.setup_done = true;
 
+    this.setup_header_toggle();
     this.setup_messaging();
 
     this.webview.addEventListener("close", this.close.bind(this));
@@ -90,6 +91,15 @@ Tab.prototype.setup2 = function() {
     this.update_title();
     this.show();
     tab_list.add(this);
+};
+
+Tab.prototype.setup_header_toggle = function() {
+    inject_css(this.webview, ''
+        + '.hidden-header {'
+        + '   height: 0;'
+        + '   display: none !important;'
+        + '}'
+    );
 };
 
 Tab.prototype.setup_messaging = function() {
@@ -173,21 +183,31 @@ Tab.prototype.update_title = function() {
 };
 
 //////////////////////////////////////////////////////////////////////
-// inject_script
+// inject_script and inject_css
 //////////////////////////////////////////////////////////////////////
 
-function inject_script(wv, script) {
+function inject_aux(tag, field, wv, data) {
     wv.executeScript(
         { code:   "(function(){"
-                + "var script = document.createElement('script');"
-                + "script.text = '"
-                + script
+                + "var script = document.createElement('"
+                + tag
+                + "');"
+                + "script." + field + " = '"
+                + data
                 + "';"
                 + "document.head.appendChild(script);"
                 + "})()"
         },
         function (x) { return x; }
     );
+}
+
+function inject_script(wv, script) {
+    inject_aux('script', 'text', wv, script);
+}
+
+function inject_css(wv, script) {
+    inject_aux('style', 'innerHTML', wv, script);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -298,7 +318,8 @@ submenu.append(new nw.MenuItem({
         if (tab_list.shown_tab) {
             inject_script(
                 tab_list.shown_tab.webview,
-                '$("#header").toggle();'
+                '$("#header").toggleClass("hidden-header");'
+                + 'Jupyter.menubar.events.trigger("resize-header.Page");'
             );
         }
     }
