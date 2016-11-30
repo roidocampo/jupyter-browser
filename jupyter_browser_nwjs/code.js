@@ -330,6 +330,17 @@ submenu.append(new nw.MenuItem({
 }));
 
 submenu.append(new nw.MenuItem({
+    label : "Toogle Full Screen",
+    key : "Y",
+    modifiers : "cmd",
+    click : toggle_maximized
+}));
+
+submenu.append(new nw.MenuItem({
+    type : "separator"
+}));
+
+submenu.append(new nw.MenuItem({
     label : "Show Developer Tools",
     key : "i",
     modifiers : "cmd+alt",
@@ -356,6 +367,48 @@ mb.insert(new nw.MenuItem({
 nw.Window.get().menu = mb;
 
 //////////////////////////////////////////////////////////////////////
+// Window sizing
+//////////////////////////////////////////////////////////////////////
+
+var window_info = {
+    state: "init",
+    x: 65,
+    y: 35,
+    width: 1200,
+    height: 1400
+};
+
+function toggle_maximized() {
+    var save_window_info = true;
+    if (window_info.state == "init") {
+        if (screen_info.width > 1500) {
+            save_window_info = false;
+            window_info.state = "maximized";
+        } else {
+            window_info.state = "normal";
+        }
+    }
+    if (window_info.state == "normal") {
+        if (save_window_info) {
+            window_info.x = nw_window.x;
+            window_info.y = nw_window.y;
+            window_info.width = nw_window.width;
+            window_info.height = nw_window.height;
+        }
+        nw_window.moveTo(-5,0);
+        nw_window.resizeTo(screen_info.width + 10, screen_info.height);
+        nw_window.window.document.body.classList.add("maximized");
+        window_info.state = "maximized";
+    }
+    else if (window_info.state == "maximized") {
+        nw_window.moveTo(window_info.x, window_info.y);
+        nw_window.resizeTo(window_info.width, window_info.height);
+        nw_window.window.document.body.classList.remove("maximized");
+        window_info.state = "normal";
+    }
+}
+
+//////////////////////////////////////////////////////////////////////
 // Global Events
 //////////////////////////////////////////////////////////////////////
 
@@ -379,6 +432,8 @@ nw_window.on("focus", function() {
 });
 
 window.onload = function() {
+    toggle_maximized();
+    nw_window.show();
     for (let url of nw.App.argv) {
         load_tab(url);
     }

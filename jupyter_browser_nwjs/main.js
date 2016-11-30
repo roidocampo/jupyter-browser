@@ -16,9 +16,10 @@ function create_main_window() {
         },
         function (newWindow) {
             newWindow.window.nw_window = newWindow;
-            newWindow.moveTo(-5,0);
-            newWindow.resizeTo(screen_width + 10, screen_height);
-            newWindow.show();
+            newWindow.window.screen_info = {
+                width: screen_width,
+                height: screen_height
+            };
         }
     );
 }
